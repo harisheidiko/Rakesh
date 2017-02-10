@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8081" doc:name="HTTP Listener Configuration"/>
+    <http:request-config name="HTTP_Request_Configuration2" protocol="HTTPS" host="api.ciscospark.com" port="443" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="www.googleapis.com" port="443" doc:name="HTTP Request Configuration"/>
+    <spring:beans>
+		<spring:bean name="uploadFile" class="com.google.UploadGoogle" />
+	</spring:beans>
+    <flow name="wwwFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/ww" doc:name="HTTP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"name": "college.csv"
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <http:request config-ref="HTTP_Request_Configuration" path="/upload/drive/v3/files" method="POST" doc:name="HTTP">
+            <http:request-builder>
+                <http:query-param paramName="uploadType" value="resumable"/>
+                <http:header headerName="Authorization" value="Bearer ya29.GlvtA_MTSkJrBNEUPR8k2pNrf6d4D3Bj1tT2xKRNiN6R2SAW30fXBg2iNUfCLqBWEoXEfO5os8ug6663bMrTnkULVzkKXHYUitftsx3xW5iGMUD475__tDI_-LgD"/>
+                <http:header headerName="Content-Type" value="application/json"/>
+            </http:request-builder>
+        </http:request>
+        <set-variable variableName="url" value="#[message.inboundProperties.location]" doc:name="Variable"/>
+        <http:request config-ref="HTTP_Request_Configuration2" path="/v1/contents/Y2lzY29zcGFyazovL3VzL0NPTlRFTlQvNzJhNjM5ZDAtZWViMC0xMWU2LTljZjctNjczMTI2NzI5ZWMxLzA" method="GET" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Authorization" value="Bearer MmNkNDQ4YWUtYWQ4Zi00ZmY1LTlhMzAtZjJmOGVkM2Y4NmJiNTljODlmNjItNDE2"/>
+            </http:request-builder>
+        </http:request>
+        <expression-component doc:name="Expression"><![CDATA[flowVars.list= new java.util.ArrayList();
+flowVars.list.add(message.payload);
+flowVars.list.add(flowVars.url);]]></expression-component>
+        <invoke name="UploadGoogle" object-ref="uploadFile" method="uploadFile" methodArguments="#[flowVars.list]" methodArgumentTypes="java.util.List" doc:name="Invoke"/>
+        <logger level="INFO" doc:name="Logger" message="#[message.payloadAs(java.lang.String)]"/>
+    </flow>
+</mule>
